@@ -1,0 +1,83 @@
+ER DIAGRAM (TEXT FORMAT)
+Intelligent Diabetes Risk Predictor
+=====================================
+
++-------------------+
+|       Users       |
++-------------------+
+| PK user_id        |
+|    full_name      |
+|    username (UQ)  |
+|    email (UQ)     |
+|    password_hash  |
+|    role           |
+|    created_at     |
+|    last_login     |
+|    is_active      |
++-------------------+
+        | 1
+        |
+        | has many
+        |
+   -----+-------------------------+-------------------------+
+   |                              |                         |
+   v N                            v N                       v N
++-------------------+      +-------------------+    +-------------------+
+|   HealthRecords   |      |    Predictions     |    |     Feedback      |
++-------------------+      +-------------------+    +-------------------+
+| PK record_id      |      | PK prediction_id   |    | PK feedback_id    |
+| FK user_id        |      | FK user_id         |    | FK user_id        |
+|    age            |      | FK record_id       |    |    feedback_type  |
+|    gender         |      | FK model_id        |    |    message        |
+|    bmi            |      |    prediction_result|   |    rating         |
+|    hypertension   |      |    probability     |    |    submitted_at   |
+|    heart_disease  |      |    confidence_score|    +-------------------+
+|    smoking_history|      |    risk_category   |
+|    blood_glucose.. |     |    predicted_at    |
+|    hba1c_level     |     +-------------------+
+|    recorded_at     |             | 1
++-------------------+               |
+        ^ 1                         | has many
+        | referenced by             v N
+        |                    +-------------------+
+        +--------------------|      Reports       |
+       (record_id FK)        +-------------------+
+                              | PK report_id      |
+                              | FK user_id         |
+                              | FK prediction_id    |
+                              |    report_type      |
+                              |    file_path         |
+                              |    generated_at       |
+                              +-------------------+
+
+                       +-------------------+
+                       |       Models       |
+                       +-------------------+
+                       | PK model_id        |
+                       |    model_name      |
+                       |    file_path       |
+                       |    accuracy        |
+                       |    precision_score |
+                       |    recall_score    |
+                       |    f1_score        |
+                       |    roc_auc         |
+                       |    is_best_model   |
+                       |    trained_at      |
+                       +-------------------+
+                                | 1
+                                | referenced by
+                                v N
+                         (Predictions.model_id FK)
+
+RELATIONSHIP SUMMARY
+---------------------
+- Users (1) ----< (N) HealthRecords        : one user can have many health records
+- Users (1) ----< (N) Predictions          : one user can have many predictions
+- Users (1) ----< (N) Feedback             : one user can submit many feedback entries
+- Users (1) ----< (N) Reports              : one user can generate many reports
+- HealthRecords (1) ----< (N) Predictions  : one health record can produce predictions
+- Models (1) ----< (N) Predictions         : one model can be used for many predictions
+- Predictions (1) ----< (N) Reports        : one prediction can have multiple reports generated from it
+
+All foreign keys enforce referential integrity via SQLite's
+"PRAGMA foreign_keys = ON" setting (see database/db_manager.py).

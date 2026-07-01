@@ -1,0 +1,62 @@
+/* styles.css — Healthcare theme for the Intelligent Diabetes Risk Predictor */
+
+:root {
+    --primary: #0E7C7B;
+    --secondary: #17A398;
+    --accent: #E63946;
+    --success: #2A9D8F;
+    --warning: #F4A261;
+    --background: #F7FAFC;
+}
+
+/* Main app background */
+.stApp {
+    background-color: var(--background);
+}
+
+/* Headings */
+h1, h2, h3 {
+    color: var(--primary);
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #0E2F2F;
+}
+section[data-testid="stSidebar"] * {
+    color: #F0F8F7 !important;
+}
+
+/* Primary buttons */
+button[kind="primary"] {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+button[kind="primary"]:hover {
+    background-color: var(--secondary) !important;
+}
+
+/* Metric cards */
+div[data-testid="stMetric"] {
+    background-color: white;
+    border-radius: 10px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-left: 4px solid var(--secondary);
+}
+
+/* Tabs */
+button[data-baseweb="tab"] {
+    font-weight: 600;
+}
+
+/* Dataframes */
+div[data-testid="stDataFrame"] {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Info/warning/error boxes get a softer rounded look */
+div[data-testid="stAlert"] {
+    border-radius: 10px;
+}

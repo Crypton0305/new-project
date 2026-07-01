@@ -1,0 +1,18 @@
+Field,Value
+Full Name,Test User
+Username,testuser
+Email,t@t.com
+Generated At,2026-07-01T08:36:50.758393
+age,55
+gender,Male
+bmi,31.0
+hypertension,1
+heart_disease,0
+smoking_history,former
+blood_glucose_level,180
+HbA1c_level,7.2
+Model Used,Logistic Regression
+Prediction Result,Diabetic
+Probability,0.95
+Confidence Score,0.9
+Risk Category,High Risk

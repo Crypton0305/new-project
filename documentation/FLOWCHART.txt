@@ -1,0 +1,91 @@
+SYSTEM FLOWCHART (TEXT FORMAT)
+Intelligent Diabetes Risk Predictor
+=====================================
+
+[START]
+   |
+   v
+[App Launch: app.py]
+   |
+   v
+[Initialize Database (idempotent schema creation)]
+   |
+   v
+[Is user authenticated? (session_state)] --NO--> [Show Login / Register Tabs]
+   |                                                   |
+   |                                                   v
+   |                                          [Register]      [Login]
+   |                                              |                |
+   |                                   [Validate input]   [Verify bcrypt hash]
+   |                                              |                |
+   |                                   [Create user in DB] [Set session_state,
+   |                                              |          update last_login]
+   |                                              |________________|
+   |                                                      |
+   |<-----------------------------------------------------+
+   YES
+   |
+   v
+[Render Sidebar: role-aware navigation menu]
+   |
+   v
+[User selects a page] ----------------------------------------------+
+   |                                                                  |
+   v                                                                  |
+[Route via PAGE_REGISTRY + RBAC check (require_role where needed)]   |
+   |                                                                  |
+   +--> Home Dashboard            --> Show overview, stats, features |
+   +--> Data Analysis             --> Load dataset -> EDA (Plotly)   |
+   +--> Model Training (Admin/Provider)                              |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Load raw data] -> [Clean/Engineer/Encode/Scale] -> [Split 70/30]
+   |        |                                                        |
+   |        v                                                        |
+   |    [Train: LogReg, Decision Tree, SVM, Neural Network]          |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Evaluate: Accuracy/Precision/Recall/F1/ROC AUC/ConfMatrix]  |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Select Best Model by ROC AUC] -> [Save via Joblib] -> [Save metadata to DB]
+   |                                                                  |
+   +--> Diabetes Prediction                                          |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Patient fills form: age, gender, BMI, hypertension,         |
+   |     heart disease, smoking history, glucose, HbA1c]             |
+   |        |                                                        |
+   |        v                                                        |
+   |    [PredictionEngine: preprocess input -> load best model       |
+   |     -> predict probability]                                     |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Determine risk category: Low / Moderate / High]             |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Display result + High Risk Alert / Healthy Status]          |
+   |        |                                                        |
+   |        v                                                        |
+   |    [Save HealthRecord + Prediction to DB]                       |
+   |                                                                  |
+   +--> Risk Factor Analysis --> Feature importance + SHAP explain   |
+   +--> Recommendations      --> Generate tailored diet/exercise/etc |
+   +--> Longitudinal Tracking--> Query history -> trend charts       |
+   +--> Visualization Dashboard --> Aggregate stats + model perf     |
+   +--> Report Generation    --> Build PDF (ReportLab) / CSV -> download
+   +--> Education Center     --> Static educational content tabs    |
+   +--> Clinical Decision Support (Admin/Provider) --> Insights +    |
+   |     clinical suggestions + disclaimer                           |
+   +--> Feedback             --> Submit feedback -> store in DB     |
+   +--> Admin Panel (Admin only) --> Upload dataset / manage users / |
+   |     view stats / train models / monitor performance /           |
+   |     manage reports / view feedback                              |
+   |                                                                  |
+   +------------------------------------------------------------------+
+   |
+   v
+[User clicks Logout] --> [Clear session_state] --> back to Login screen
+   |
+   v
+[END / Awaiting next user action]
