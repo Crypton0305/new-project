@@ -17,7 +17,6 @@ from the Streamlit "Model Training" page (with a progress callback).
 
 import os
 import sys
-import time
 import joblib
 import numpy as np
 
@@ -31,12 +30,7 @@ from database.db_manager import initialize_database, save_model_metadata
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
-
-# TensorFlow/Keras for the Neural Network model
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")  # suppress verbose TF logs
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+from sklearn.neural_network import MLPClassifier
 
 
 # ---------------------------------------------------------------------------
@@ -54,16 +48,17 @@ def build_svm():
     return SVC(kernel="rbf", probability=True, random_state=42)
 
 
-def build_neural_network(input_dim: int):
-    model = keras.Sequential([
-        layers.Input(shape=(input_dim,)),
-        layers.Dense(32, activation="relu"),
-        layers.Dropout(0.2),
-        layers.Dense(16, activation="relu"),
-        layers.Dense(1, activation="sigmoid"),
-    ])
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
-    return model
+def build_neural_network(input_dim: int = None):
+    # Using sklearn MLPClassifier — no TensorFlow/Keras dependency
+    # Same architecture: 2 hidden layers (32, 16 neurons), relu activation
+    return MLPClassifier(
+        hidden_layer_sizes=(32, 16),
+        activation="relu",
+        max_iter=300,
+        random_state=42,
+        early_stopping=True,
+        validation_fraction=0.1,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -130,21 +125,18 @@ def train_all_models(progress_callback=None, log_callback=None):
         current_progress += progress_per_step
         progress(current_progress)
 
-    # --- Neural Network (Keras) ---
-    log("Training Neural Network (Keras)...")
+    # --- Neural Network (sklearn MLPClassifier) ---
+    log("Training Neural Network (MLP)...")
     nn_model = build_neural_network(X_train.shape[1])
-    nn_model.fit(
-        X_train, y_train,
-        epochs=25, batch_size=32, verbose=0,
-        validation_split=0.1,
-    )
-    y_proba_nn = nn_model.predict(X_test, verbose=0).flatten()
+    nn_model.fit(X_train, y_train)
+
+    y_proba_nn = nn_model.predict_proba(X_test)[:, 1]
     y_pred_nn = (y_proba_nn >= 0.5).astype(int)
     metrics_nn = evaluate_classifier(y_test, y_pred_nn, y_proba_nn)
     results["Neural Network"] = metrics_nn
 
-    nn_path = os.path.join(SAVED_MODELS_DIR, "neural_network.keras")
-    nn_model.save(nn_path)
+    nn_path = os.path.join(SAVED_MODELS_DIR, "neural_network.joblib")
+    joblib.dump(nn_model, nn_path)
     model_paths["Neural Network"] = nn_path
 
     log(f"Neural Network -> Accuracy: {metrics_nn['accuracy']}, ROC AUC: {metrics_nn['roc_auc']}")

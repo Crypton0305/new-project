@@ -43,13 +43,9 @@ class PredictionEngine:
         self.model_name = best_info["name"]
         model_path = best_info["path"]
 
-        if model_path.endswith(".keras"):
-            from tensorflow import keras
-            self.model = keras.models.load_model(model_path)
-            self.model_type = "keras"
-        else:
-            self.model = joblib.load(model_path)
-            self.model_type = "sklearn"
+        # All models saved via joblib (no TensorFlow dependency)
+        self.model = joblib.load(model_path)
+        self.model_type = "sklearn"
 
     def reload(self):
         """Call after retraining models so the engine picks up the new best model."""
@@ -64,10 +60,7 @@ class PredictionEngine:
         """
         X = preprocess_single_input(patient_input, self.transformers)
 
-        if self.model_type == "keras":
-            probability = float(self.model.predict(X.values, verbose=0).flatten()[0])
-        else:
-            probability = float(self.model.predict_proba(X)[:, 1][0])
+        probability = float(self.model.predict_proba(X)[:, 1][0])
 
         prediction_result = int(probability >= 0.5)
         confidence_score = round(abs(probability - 0.5) * 2, 4)  # 0 (uncertain) -> 1 (very confident)
