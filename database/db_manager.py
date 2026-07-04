@@ -1,24 +1,15 @@
 """
 db_manager.py
 -------------
-Handles all Firebase Firestore database interactions for the Diabetes Risk
-Predictor system, using Firebase Firestore as the backend (cloud NoSQL database) while
-keeping the SAME function names/signatures so pages/utils don't need changes.
+Handles all Firebase Firestore database interactions.
 
-Collections used (Firestore is schema-less, but we keep a consistent shape):
-    - users
-    - health_records
-    - models
-    - predictions
-    - feedback
-    - reports
+Credentials loading priority:
+  1. Streamlit secrets (st.secrets) — used on Streamlit Cloud
+  2. Local JSON file (database/firebase-credentials.json) — used in local dev
 
-Setup:
-    1. Create a Firebase project at https://console.firebase.google.com
-    2. Enable Firestore (Native mode) in that project.
-    3. Project Settings -> Service Accounts -> Generate New Private Key.
-    4. Save the downloaded JSON as: database/firebase-credentials.json
-       (path is configured in config.FIREBASE_CREDENTIALS_PATH)
+Streamlit Cloud setup:
+  Go to: Manage App -> Settings -> Secrets
+  Add your Firebase service account JSON fields under [firebase] section.
 """
 
 import os
@@ -31,7 +22,6 @@ from firebase_admin import credentials, firestore
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import FIREBASE_CREDENTIALS_PATH
 
-
 # ---------------------------------------------------------------------------
 # FIREBASE INITIALIZATION
 # ---------------------------------------------------------------------------
@@ -39,20 +29,34 @@ _db = None
 
 
 def _get_db():
-    """Lazily initializes the Firebase Admin SDK and returns a Firestore client."""
+    """Lazily initializes Firebase and returns Firestore client."""
     global _db
     if _db is not None:
         return _db
 
     if not firebase_admin._apps:
-        if not os.path.exists(FIREBASE_CREDENTIALS_PATH):
-            raise FileNotFoundError(
-                f"Firebase credentials not found at {FIREBASE_CREDENTIALS_PATH}. "
-                "Download your service account JSON from Firebase Console "
-                "(Project Settings -> Service Accounts -> Generate New Private Key) "
-                "and save it at that path."
-            )
-        cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+        cred = None
+
+        # --- Option 1: Streamlit Cloud secrets ---
+        try:
+            import streamlit as st
+            if "firebase" in st.secrets:
+                cred = credentials.Certificate(dict(st.secrets["firebase"]))
+        except Exception:
+            pass
+
+        # --- Option 2: Local JSON file ---
+        if cred is None:
+            if not os.path.exists(FIREBASE_CREDENTIALS_PATH):
+                raise FileNotFoundError(
+                    f"Firebase credentials not found.\n\n"
+                    f"For LOCAL development: save your Firebase service account JSON at:\n"
+                    f"  {FIREBASE_CREDENTIALS_PATH}\n\n"
+                    f"For STREAMLIT CLOUD: go to Manage App -> Settings -> Secrets\n"
+                    f"and add your Firebase credentials under [firebase] section."
+                )
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+
         firebase_admin.initialize_app(cred)
 
     _db = firestore.client()
@@ -60,10 +64,7 @@ def _get_db():
 
 
 def initialize_database():
-    """
-    Firestore is schema-less, so there's nothing to 'create' upfront.
-    This function just verifies the connection works (called on app startup).
-    """
+    """Verifies Firebase connection on app startup."""
     _get_db()
 
 
@@ -108,7 +109,9 @@ def get_user_by_id(user_id):
 
 def update_last_login(user_id):
     db = _get_db()
-    db.collection("users").document(str(user_id)).update({"last_login": datetime.now().isoformat()})
+    db.collection("users").document(str(user_id)).update(
+        {"last_login": datetime.now().isoformat()}
+    )
 
 
 def get_all_users():
@@ -124,7 +127,9 @@ def get_all_users():
 
 def set_user_active_status(user_id, is_active: bool):
     db = _get_db()
-    db.collection("users").document(str(user_id)).update({"is_active": int(is_active)})
+    db.collection("users").document(str(user_id)).update(
+        {"is_active": int(is_active)}
+    )
 
 
 def delete_user(user_id):
@@ -156,7 +161,9 @@ def add_health_record(user_id, data: dict):
 def get_health_records_for_user(user_id):
     db = _get_db()
     records = []
-    query = db.collection("health_records").where("user_id", "==", str(user_id)).stream()
+    query = db.collection("health_records").where(
+        "user_id", "==", str(user_id)
+    ).stream()
     for doc in query:
         data = doc.to_dict()
         data["record_id"] = doc.id
@@ -171,9 +178,12 @@ def get_health_records_for_user(user_id):
 def save_model_metadata(model_name, file_path, metrics: dict, is_best=False):
     db = _get_db()
     if is_best:
-        for doc in db.collection("models").where("is_best_model", "==", 1).stream():
-            db.collection("models").document(doc.id).update({"is_best_model": 0})
-
+        for doc in db.collection("models").where(
+            "is_best_model", "==", 1
+        ).stream():
+            db.collection("models").document(doc.id).update(
+                {"is_best_model": 0}
+            )
     doc_ref = db.collection("models").document()
     doc_ref.set({
         "model_name": model_name,
@@ -191,9 +201,10 @@ def save_model_metadata(model_name, file_path, metrics: dict, is_best=False):
 
 def get_best_model():
     db = _get_db()
-    query = db.collection("models").where("is_best_model", "==", 1).stream()
     best = None
-    for doc in query:
+    for doc in db.collection("models").where(
+        "is_best_model", "==", 1
+    ).stream():
         data = doc.to_dict()
         data["model_id"] = doc.id
         if best is None or data["trained_at"] > best["trained_at"]:
@@ -215,7 +226,8 @@ def get_all_models():
 # ---------------------------------------------------------------------------
 # PREDICTIONS
 # ---------------------------------------------------------------------------
-def add_prediction(user_id, record_id, model_id, prediction_result, probability, confidence_score, risk_category):
+def add_prediction(user_id, record_id, model_id, prediction_result,
+                   probability, confidence_score, risk_category):
     db = _get_db()
     doc_ref = db.collection("predictions").document()
     doc_ref.set({
@@ -234,7 +246,9 @@ def add_prediction(user_id, record_id, model_id, prediction_result, probability,
 def get_predictions_for_user(user_id):
     db = _get_db()
     preds = []
-    query = db.collection("predictions").where("user_id", "==", str(user_id)).stream()
+    query = db.collection("predictions").where(
+        "user_id", "==", str(user_id)
+    ).stream()
     for doc in query:
         data = doc.to_dict()
         data["prediction_id"] = doc.id
@@ -303,7 +317,9 @@ def add_report(user_id, prediction_id, report_type, file_path):
 def get_reports_for_user(user_id):
     db = _get_db()
     reports = []
-    query = db.collection("reports").where("user_id", "==", str(user_id)).stream()
+    query = db.collection("reports").where(
+        "user_id", "==", str(user_id)
+    ).stream()
     for doc in query:
         data = doc.to_dict()
         data["report_id"] = doc.id
@@ -313,7 +329,6 @@ def get_reports_for_user(user_id):
 
 
 def get_all_reports():
-    """Used by Admin Panel (replaces the old raw-SQL JOIN query)."""
     db = _get_db()
     reports = []
     for doc in db.collection("reports").stream():
